@@ -1,28 +1,60 @@
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
     const compareBtn = document.getElementById('compare-btn');
     const text1 = document.getElementById('text1');
     const text2 = document.getElementById('text2');
     const resultContainer = document.getElementById('result');
+    let session; // To hold the language model session
 
-    // Check for API availability
-    if (!window.LanguageModel) {
-        resultContainer.innerHTML = 'The Prompt API is not available in your browser. Please use Chrome 138+ and check the hardware requirements.';
+    async function initializeModel() {
         compareBtn.disabled = true;
-        return;
+        if (!window.LanguageModel) {
+            resultContainer.innerHTML = 'The Prompt API is not available in your browser. Please use Chrome 138+ and check the hardware requirements.';
+            return;
+        }
+
+        try {
+            const availability = await window.LanguageModel.availability();
+
+            if (availability.status === 'available') {
+                resultContainer.innerHTML = 'AI Model is ready.';
+                session = await window.LanguageModel.create();
+                compareBtn.disabled = false;
+            } else if (availability.status === 'downloadable') {
+                resultContainer.innerHTML = 'AI model needs to be downloaded. Starting...';
+                session = await window.LanguageModel.create({
+                    monitor(m) {
+                        m.addEventListener('downloadprogress', (e) => {
+                            if (e.total) {
+                                const percentage = Math.round(e.loaded / e.total * 100);
+                                resultContainer.innerHTML = `Downloading AI model: ${percentage}%`;
+                            } else {
+                                resultContainer.innerHTML = `Downloading AI model...`;
+                            }
+                        });
+                    },
+                });
+                resultContainer.innerHTML = 'AI Model downloaded and ready.';
+                compareBtn.disabled = false;
+            } else if (availability.status === 'downloading') {
+                resultContainer.innerHTML = 'AI model is currently downloading. Please wait.';
+                // In a real app, you might want to set up a recurring check for availability.
+            } else { // 'unavailable'
+                resultContainer.innerHTML = `The AI model is not available on this device. Status: ${availability.status}`;
+            }
+        } catch (error) {
+            resultContainer.innerHTML = `Error initializing model: ${error.message}`;
+            console.error(error);
+        }
     }
 
-    const availability = await window.LanguageModel.availability();
-    if (availability.status !== 'available') {
-        resultContainer.innerHTML = `The model is not available. Status: ${availability.status}. It may be downloading. Please wait and try again.`;
-        compareBtn.disabled = true;
-        // Optionally, you could trigger the download here.
-        return;
-    }
-
-    compareBtn.disabled = false;
-    resultContainer.innerHTML = 'Ready to compare.';
+    initializeModel();
 
     compareBtn.addEventListener('click', async () => {
+        if (!session) {
+            resultContainer.innerHTML = 'Session not initialized. Please wait or reload the page.';
+            return;
+        }
+
         const textA = text1.value;
         const textB = text2.value;
 
@@ -35,7 +67,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         compareBtn.disabled = true;
 
         try {
-            const session = await window.LanguageModel.create();
             const fullPrompt = getFullPrompt(textA, textB);
             const jsonSchema = getJsonSchema();
 
