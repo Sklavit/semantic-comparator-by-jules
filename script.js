@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
             throw new Error('On-device session not initialized. Please select it again to retry.');
         }
         const fullPrompt = getFullPrompt(textA, textB);
-        const jsonSchema = getJsonSchema();
+        const jsonSchema = getOnDeviceJsonSchema();
         const rawResponse = await onDeviceSession.prompt(fullPrompt, {
             responseConstraint: { schema: jsonSchema }
         });
@@ -117,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
         const fullPrompt = getFullPrompt(textA, textB);
-        const jsonSchema = getJsonSchema();
+        const jsonSchema = getGoogleApiJsonSchema();
 
         const requestBody = {
             contents: [{ parts: [{ text: fullPrompt }] }],
@@ -205,72 +205,39 @@ Now please process the following texts:
 `;
 }
 
-function getJsonSchema() {
+function getOnDeviceJsonSchema() {
+    // Returns the schema with lowercase types for the on-device Chrome Prompt API
     return {
         "type": "object",
         "properties": {
-            "fragments": {
-                "type": "object",
-                "properties": {
-                    "textA": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": { "type": "string" },
-                                "text": { "type": "string" },
-                                "startIndex": { "type": "integer" },
-                                "endIndex": { "type": "integer" }
-                            },
-                            "required": ["id", "text", "startIndex", "endIndex"]
-                        }
-                    },
-                    "textB": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": { "type": "string" },
-                                "text": { "type": "string" },
-                                "startIndex": { "type": "integer" },
-                                "endIndex": { "type": "integer" }
-                            },
-                            "required": ["id", "text", "startIndex", "endIndex"]
-                        }
-                    }
-                },
-                "required": ["textA", "textB"]
-            },
-            "alignments": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "textAFragment": { "type": ["string", "null"] },
-                        "textBFragment": { "type": ["string", "null"] },
-                        "type": { "type": "string", "enum": ["MATCH", "SUBSTITUTION", "INSERTION", "DELETION"] },
-                        "similarity": { "type": "number" },
-                        "description": { "type": "string" }
-                    },
-                    "required": ["textAFragment", "textBFragment", "type", "similarity", "description"]
-                }
-            },
-            "summary": {
-                "type": "object",
-                "properties": {
-                    "totalFragmentsA": { "type": "integer" },
-                    "totalFragmentsB": { "type": "integer" },
-                    "matches": { "type": "integer" },
-                    "substitutions": { "type": "integer" },
-                    "insertions": { "type": "integer" },
-                    "deletions": { "type": "integer" },
-                    "overallSimilarity": { "type": "number" }
-                },
-                "required": ["totalFragmentsA", "totalFragmentsB", "matches", "substitutions", "insertions", "deletions", "overallSimilarity"]
-            }
+            "fragments": { "type": "object", "properties": { "textA": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "text": { "type": "string" }, "startIndex": { "type": "integer" }, "endIndex": { "type": "integer" } }, "required": ["id", "text", "startIndex", "endIndex"] } }, "textB": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "text": { "type": "string" }, "startIndex": { "type": "integer" }, "endIndex": { "type": "integer" } }, "required": ["id", "text", "startIndex", "endIndex"] } } }, "required": ["textA", "textB"] },
+            "alignments": { "type": "array", "items": { "type": "object", "properties": { "textAFragment": { "type": ["string", "null"] }, "textBFragment": { "type": ["string", "null"] }, "type": { "type": "string", "enum": ["MATCH", "SUBSTITUTION", "INSERTION", "DELETION"] }, "similarity": { "type": "number" }, "description": { "type": "string" } }, "required": ["textAFragment", "textBFragment", "type", "similarity", "description"] } },
+            "summary": { "type": "object", "properties": { "totalFragmentsA": { "type": "integer" }, "totalFragmentsB": { "type": "integer" }, "matches": { "type": "integer" }, "substitutions": { "type": "integer" }, "insertions": { "type": "integer" }, "deletions": { "type": "integer" }, "overallSimilarity": { "type": "number" } }, "required": ["totalFragmentsA", "totalFragmentsB", "matches", "substitutions", "insertions", "deletions", "overallSimilarity"] }
         },
         "required": ["fragments", "alignments", "summary"]
     };
+}
+
+function getGoogleApiJsonSchema() {
+    // Recursively converts a schema's type values to uppercase for the Google API
+    const toUpperCaseSchema = (obj) => {
+        if (typeof obj !== 'object' || obj === null) {
+            return obj;
+        }
+        if (Array.isArray(obj)) {
+            return obj.map(toUpperCaseSchema);
+        }
+        const newObj = {};
+        for (const key in obj) {
+            if (key === 'type' && typeof obj[key] === 'string') {
+                newObj[key] = obj[key].toUpperCase();
+            } else {
+                newObj[key] = toUpperCaseSchema(obj[key]);
+            }
+        }
+        return newObj;
+    };
+    return toUpperCaseSchema(getOnDeviceJsonSchema());
 }
 
 function displayResults(data, container) {
