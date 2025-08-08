@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const text2 = document.getElementById('text2');
     const resultContainer = document.getElementById('result');
 
-    let onDeviceSession; // To hold the on-device language model session
+    let onDeviceSession;
 
     // --- Model Initialization ---
     async function initializeOnDeviceModel() {
@@ -59,11 +59,11 @@ document.addEventListener('DOMContentLoaded', () => {
     modelSelector.addEventListener('change', () => {
         const selectedModel = modelSelector.value;
         if (selectedModel === 'google-api') {
-            apiKeyContainer.style.display = 'flex';
+            apiKeyContainer.classList.remove('hidden');
             compareBtn.disabled = false;
             resultContainer.innerHTML = 'Ready to compare using Google Gemini API.';
         } else {
-            apiKeyContainer.style.display = 'none';
+            apiKeyContainer.classList.add('hidden');
             initializeOnDeviceModel();
         }
     });
@@ -145,17 +145,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Initial Setup ---
-    // Initialize with the default selected model
     if (modelSelector.value === 'on-device') {
         initializeOnDeviceModel();
     } else {
-        apiKeyContainer.style.display = 'flex';
+        apiKeyContainer.classList.remove('hidden');
         compareBtn.disabled = false;
         resultContainer.innerHTML = 'Ready to compare using Google Gemini API.';
     }
 });
 
-// ... (The rest of the functions getFullPrompt, getJsonSchema, displayResults remain the same, so I'm omitting them for brevity)
+
 function getFullPrompt(textA, textB) {
     return `# Semantic Text Alignment Prompt
 
