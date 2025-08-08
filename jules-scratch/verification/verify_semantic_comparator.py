@@ -11,38 +11,42 @@ def run_verification(playwright):
     # Navigate to the local HTML file
     page.goto(f'file://{file_path}')
 
-    try:
-        # Wait for the model to be ready by checking if the compare button is enabled
-        compare_button = page.get_by_role("button", name="Compare")
-        # A long timeout is needed as the browser might be downloading the model
-        expect(compare_button).to_be_enabled(timeout=180000) # 3 minutes
+    # --- Test 1: Verify automatic switch to Google API ---
+    print("Verifying final state after automatic switch to Google API...")
+    # In this environment, the on-device model is not available.
+    # The app should detect this, switch the model, and settle into the 'Google API ready' state.
 
-        # Input texts
-        text1 = "The weather is beautiful today. I love sunny days."
-        text2 = "Today’s weather is gorgeous. Sunny weather makes me happy."
-        page.locator("#text1").fill(text1)
-        page.locator("#text2").fill(text2)
+    # Check that the model selector has switched to 'google-api'
+    expect(page.locator("#model-selector")).to_have_value("google-api", timeout=10000)
 
-        # Click the compare button
-        compare_button.click()
+    # Check that the API key container is now visible
+    expect(page.locator("#api-key-container")).to_be_visible()
 
-        # Wait for the result table to appear. This can take a while.
-        result_table = page.locator("#result table")
-        expect(result_table).to_be_visible(timeout=120000) # 2 minutes
+    # Check that the final status message is correct
+    expect(page.locator("#result")).to_have_text("Ready to compare using Google Gemini API.")
+    print("Automatic switch and final state verified successfully.")
 
-        # Take a screenshot
-        page.screenshot(path="jules-scratch/verification/verification.png")
-        print("Successfully generated screenshot.")
+    # --- Test 2: Test Google Gemini API call with dummy key ---
+    print("Testing Google Gemini API call with a dummy key...")
+    # Enter text and a dummy API key
+    page.locator("#text1").fill("This is a test.")
+    page.locator("#text2").fill("This is another test.")
+    page.locator("#api-key-input").fill("DUMMY_API_KEY")
 
-    except AssertionError as e: # Corrected exception type
-        # Get the status message from the result container
-        status_message = page.locator("#result").text_content()
-        print(f"Playwright script failed. Status message: '{status_message}'")
-        page.screenshot(path="jules-scratch/verification/failure_screenshot.png")
-        raise
+    # Click compare
+    page.get_by_role("button", name="Compare").click()
 
-    finally:
-        browser.close()
+    # --- Test 3: Check for expected error ---
+    print("Testing for expected API error...")
+    # Wait for the error message from the invalid API key
+    expect(page.locator("#result")).to_contain_text("Google API Error", timeout=30000)
+    print("API error verified successfully.")
+
+    # Take a screenshot of the final state
+    page.screenshot(path="jules-scratch/verification/verification.png")
+    print("Successfully generated final screenshot.")
+
+    browser.close()
 
 with sync_playwright() as playwright:
     run_verification(playwright)

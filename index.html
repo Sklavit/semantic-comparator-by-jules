@@ -9,6 +9,20 @@
 <body>
     <main>
         <h1>Semantic Text Comparator</h1>
+
+        <div class="model-selector-container">
+            <label for="model-selector">Select AI Model:</label>
+            <select id="model-selector">
+                <option value="on-device">On-Device Model (Gemini Nano)</option>
+                <option value="google-api">Google Gemini API (Server-side)</option>
+            </select>
+        </div>
+
+        <div id="api-key-container" style="display: none;">
+            <label for="api-key-input">Google Gemini API Key:</label>
+            <input type="password" id="api-key-input" placeholder="Enter your API key">
+        </div>
+
         <div class="container">
             <div class="textarea-container">
                 <h2>Text 1</h2>

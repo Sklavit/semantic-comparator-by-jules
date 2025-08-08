@@ -1,60 +1,75 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- DOM Elements ---
+    const modelSelector = document.getElementById('model-selector');
+    const apiKeyContainer = document.getElementById('api-key-container');
+    const apiKeyInput = document.getElementById('api-key-input');
     const compareBtn = document.getElementById('compare-btn');
     const text1 = document.getElementById('text1');
     const text2 = document.getElementById('text2');
     const resultContainer = document.getElementById('result');
-    let session; // To hold the language model session
 
-    async function initializeModel() {
+    let onDeviceSession; // To hold the on-device language model session
+
+    // --- Model Initialization ---
+    async function initializeOnDeviceModel() {
         compareBtn.disabled = true;
+        resultContainer.innerHTML = 'Initializing on-device model...';
         if (!window.LanguageModel) {
-            resultContainer.innerHTML = 'The Prompt API is not available in your browser. Please use Chrome 138+ and check the hardware requirements.';
+            resultContainer.innerHTML = 'On-Device API not available. Switched to Google API.';
+            modelSelector.options[0].disabled = true;
+            modelSelector.value = 'google-api';
+            modelSelector.dispatchEvent(new Event('change'));
             return;
         }
 
         try {
             const availability = await window.LanguageModel.availability();
-
             if (availability.status === 'available') {
-                resultContainer.innerHTML = 'AI Model is ready.';
-                session = await window.LanguageModel.create();
+                resultContainer.innerHTML = 'On-device AI Model is ready.';
+                onDeviceSession = await window.LanguageModel.create();
                 compareBtn.disabled = false;
             } else if (availability.status === 'downloadable') {
-                resultContainer.innerHTML = 'AI model needs to be downloaded. Starting...';
-                session = await window.LanguageModel.create({
+                resultContainer.innerHTML = 'On-device model needs to be downloaded. Starting...';
+                onDeviceSession = await window.LanguageModel.create({
                     monitor(m) {
                         m.addEventListener('downloadprogress', (e) => {
-                            if (e.total) {
-                                const percentage = Math.round(e.loaded / e.total * 100);
-                                resultContainer.innerHTML = `Downloading AI model: ${percentage}%`;
-                            } else {
-                                resultContainer.innerHTML = `Downloading AI model...`;
-                            }
+                            const percentage = e.total ? Math.round(e.loaded / e.total * 100) : '...';
+                            resultContainer.innerHTML = `Downloading on-device model: ${percentage}%`;
                         });
                     },
                 });
-                resultContainer.innerHTML = 'AI Model downloaded and ready.';
+                resultContainer.innerHTML = 'On-device AI Model downloaded and ready.';
                 compareBtn.disabled = false;
-            } else if (availability.status === 'downloading') {
-                resultContainer.innerHTML = 'AI model is currently downloading. Please wait.';
-                // In a real app, you might want to set up a recurring check for availability.
-            } else { // 'unavailable'
-                resultContainer.innerHTML = `The AI model is not available on this device. Status: ${availability.status}`;
+            } else {
+                resultContainer.innerHTML = `On-device model not available (${availability.status}). Switched to Google API.`;
+                modelSelector.options[0].disabled = true;
+                modelSelector.value = 'google-api';
+                modelSelector.dispatchEvent(new Event('change'));
             }
         } catch (error) {
-            resultContainer.innerHTML = `Error initializing model: ${error.message}`;
+            resultContainer.innerHTML = `Error initializing on-device model: ${error.message}. Switched to Google API.`;
+            modelSelector.options[0].disabled = true;
+            modelSelector.value = 'google-api';
+            modelSelector.dispatchEvent(new Event('change'));
             console.error(error);
         }
     }
 
-    initializeModel();
+    // --- Event Listeners ---
+    modelSelector.addEventListener('change', () => {
+        const selectedModel = modelSelector.value;
+        if (selectedModel === 'google-api') {
+            apiKeyContainer.style.display = 'flex';
+            compareBtn.disabled = false;
+            resultContainer.innerHTML = 'Ready to compare using Google Gemini API.';
+        } else {
+            apiKeyContainer.style.display = 'none';
+            initializeOnDeviceModel();
+        }
+    });
 
     compareBtn.addEventListener('click', async () => {
-        if (!session) {
-            resultContainer.innerHTML = 'Session not initialized. Please wait or reload the page.';
-            return;
-        }
-
+        const selectedModel = modelSelector.value;
         const textA = text1.value;
         const textB = text2.value;
 
@@ -63,20 +78,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        resultContainer.innerHTML = 'Processing with on-device AI... This may take a moment.';
         compareBtn.disabled = true;
+        resultContainer.innerHTML = 'Processing...';
 
         try {
-            const fullPrompt = getFullPrompt(textA, textB);
-            const jsonSchema = getJsonSchema();
-
-            const rawResponse = await session.prompt(fullPrompt, {
-                responseConstraint: { schema: jsonSchema }
-            });
-
-            const response = JSON.parse(rawResponse);
-            displayResults(response, resultContainer);
-
+            if (selectedModel === 'on-device') {
+                await runOnDeviceComparison(textA, textB);
+            } else {
+                await runGoogleApiComparison(textA, textB);
+            }
         } catch (error) {
             resultContainer.innerHTML = `An error occurred: ${error.message}`;
             console.error(error);
@@ -84,8 +94,68 @@ document.addEventListener('DOMContentLoaded', () => {
             compareBtn.disabled = false;
         }
     });
+
+    // --- Comparison Logic ---
+    async function runOnDeviceComparison(textA, textB) {
+        if (!onDeviceSession) {
+            throw new Error('On-device session not initialized. Please select it again to retry.');
+        }
+        const fullPrompt = getFullPrompt(textA, textB);
+        const jsonSchema = getJsonSchema();
+        const rawResponse = await onDeviceSession.prompt(fullPrompt, {
+            responseConstraint: { schema: jsonSchema }
+        });
+        const response = JSON.parse(rawResponse);
+        displayResults(response, resultContainer);
+    }
+
+    async function runGoogleApiComparison(textA, textB) {
+        const apiKey = apiKeyInput.value;
+        if (!apiKey) {
+            throw new Error('Please enter your Google Gemini API key.');
+        }
+
+        const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+        const fullPrompt = getFullPrompt(textA, textB);
+        const jsonSchema = getJsonSchema();
+
+        const requestBody = {
+            contents: [{ parts: [{ text: fullPrompt }] }],
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: jsonSchema
+            }
+        };
+
+        const response = await fetch(`${url}?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`Google API Error: ${errorData.error.message}`);
+        }
+
+        const data = await response.json();
+        const jsonString = data.candidates[0].content.parts[0].text;
+        const result = JSON.parse(jsonString);
+        displayResults(result, resultContainer);
+    }
+
+    // --- Initial Setup ---
+    // Initialize with the default selected model
+    if (modelSelector.value === 'on-device') {
+        initializeOnDeviceModel();
+    } else {
+        apiKeyContainer.style.display = 'flex';
+        compareBtn.disabled = false;
+        resultContainer.innerHTML = 'Ready to compare using Google Gemini API.';
+    }
 });
 
+// ... (The rest of the functions getFullPrompt, getJsonSchema, displayResults remain the same, so I'm omitting them for brevity)
 function getFullPrompt(textA, textB) {
     return `# Semantic Text Alignment Prompt
 
