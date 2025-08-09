@@ -219,39 +219,17 @@ function getOnDeviceJsonSchema() {
 }
 
 function getGoogleApiJsonSchema() {
-    const baseSchema = getOnDeviceJsonSchema();
-    // Deep clone the object to avoid modifying the original schema
-    const newSchema = JSON.parse(JSON.stringify(baseSchema));
-
-    // Recursively transform the schema for Google API compliance
-    const transform = (node) => {
-        if (typeof node !== 'object' || node === null) {
-            return;
-        }
-
-        // Handle nullable fields: { "type": ["string", "null"] } -> { "type": "STRING", "nullable": true }
-        if (node.type && Array.isArray(node.type)) {
-            const nonNullType = node.type.find(t => t !== 'null');
-            if (nonNullType && node.type.includes('null')) {
-                node.type = nonNullType.toUpperCase();
-                node.nullable = true;
-            }
-        } else if (node.type && typeof node.type === 'string') {
-            node.type = node.type.toUpperCase();
-        }
-
-        // Recurse into properties and items
-        for (const key in node) {
-            if (typeof node[key] === 'object') {
-                transform(node[key]);
-            }
-        }
+    // Returns a hardcoded schema with uppercase types and nullable fields for the Google API
+    return {
+        "type": "OBJECT",
+        "properties": {
+            "fragments": { "type": "OBJECT", "properties": { "textA": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "id": { "type": "STRING" }, "text": { "type": "STRING" }, "startIndex": { "type": "INTEGER" }, "endIndex": { "type": "INTEGER" } }, "required": ["id", "text", "startIndex", "endIndex"] } }, "textB": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "id": { "type": "STRING" }, "text": { "type": "STRING" }, "startIndex": { "type": "INTEGER" }, "endIndex": { "type": "INTEGER" } }, "required": ["id", "text", "startIndex", "endIndex"] } } }, "required": ["textA", "textB"] },
+            "alignments": { "type": "ARRAY", "items": { "type": "OBJECT", "properties": { "textAFragment": { "type": "STRING", "nullable": true }, "textBFragment": { "type": "STRING", "nullable": true }, "type": { "type": "STRING", "enum": ["MATCH", "SUBSTITUTION", "INSERTION", "DELETION"] }, "similarity": { "type": "NUMBER" }, "description": { "type": "STRING" } }, "required": ["textAFragment", "textBFragment", "type", "similarity", "description"] } },
+            "summary": { "type": "OBJECT", "properties": { "totalFragmentsA": { "type": "INTEGER" }, "totalFragmentsB": { "type": "INTEGER" }, "matches": { "type": "INTEGER" }, "substitutions": { "type": "INTEGER" }, "insertions": { "type": "INTEGER" }, "deletions": { "type": "INTEGER" }, "overallSimilarity": { "type": "NUMBER" } }, "required": ["totalFragmentsA", "totalFragmentsB", "matches", "substitutions", "insertions", "deletions", "overallSimilarity"] }
+        },
+        "required": ["fragments", "alignments", "summary"]
     };
-
-    transform(newSchema);
-    return newSchema;
 }
-
 
 function displayResults(data, container) {
     const { fragments, alignments, summary } = data;
@@ -283,7 +261,7 @@ function displayResults(data, container) {
             similarity = `(Score: ${pair.similarity.toFixed(2)})`;
         } else if (pair.type === 'DELETION') {
             rowClass = 'delete';
-            textA = fragmentsA[pair.textAFragment];
+            textA = fragmentsA[pair.tAFragment];
             textB = '';
         } else if (pair.type === 'INSERTION') {
             rowClass = 'insert';
