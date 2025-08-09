@@ -219,26 +219,39 @@ function getOnDeviceJsonSchema() {
 }
 
 function getGoogleApiJsonSchema() {
-    // Recursively converts a schema's type values to uppercase for the Google API
-    const toUpperCaseSchema = (obj) => {
-        if (typeof obj !== 'object' || obj === null) {
-            return obj;
+    const baseSchema = getOnDeviceJsonSchema();
+    // Deep clone the object to avoid modifying the original schema
+    const newSchema = JSON.parse(JSON.stringify(baseSchema));
+
+    // Recursively transform the schema for Google API compliance
+    const transform = (node) => {
+        if (typeof node !== 'object' || node === null) {
+            return;
         }
-        if (Array.isArray(obj)) {
-            return obj.map(toUpperCaseSchema);
+
+        // Handle nullable fields: { "type": ["string", "null"] } -> { "type": "STRING", "nullable": true }
+        if (node.type && Array.isArray(node.type)) {
+            const nonNullType = node.type.find(t => t !== 'null');
+            if (nonNullType && node.type.includes('null')) {
+                node.type = nonNullType.toUpperCase();
+                node.nullable = true;
+            }
+        } else if (node.type && typeof node.type === 'string') {
+            node.type = node.type.toUpperCase();
         }
-        const newObj = {};
-        for (const key in obj) {
-            if (key === 'type' && typeof obj[key] === 'string') {
-                newObj[key] = obj[key].toUpperCase();
-            } else {
-                newObj[key] = toUpperCaseSchema(obj[key]);
+
+        // Recurse into properties and items
+        for (const key in node) {
+            if (typeof node[key] === 'object') {
+                transform(node[key]);
             }
         }
-        return newObj;
     };
-    return toUpperCaseSchema(getOnDeviceJsonSchema());
+
+    transform(newSchema);
+    return newSchema;
 }
+
 
 function displayResults(data, container) {
     const { fragments, alignments, summary } = data;
