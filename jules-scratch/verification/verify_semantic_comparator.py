@@ -11,36 +11,28 @@ def run_verification(playwright):
     # Navigate to the local HTML file
     page.goto(f'file://{file_path}')
 
-    # --- Test 1: Verify automatic switch to Google API ---
-    print("Verifying final state after automatic switch to Google API...")
-    # In this environment, the on-device model is not available.
-    # The app should detect this, switch the model, and settle into the 'Google API ready' state.
+    # --- Test 1: Manually switch to Google API ---
+    print("Testing manual switch to Google API...")
+    page.locator("#model-selector").select_option("google-api")
+    expect(page.locator("#api-key-container")).to_be_visible(timeout=5000)
+    expect(page.locator("#claude-api-key-container")).to_be_hidden()
+    print("Manual switch to Google API verified.")
 
-    # Check that the model selector has switched to 'google-api'
-    expect(page.locator("#model-selector")).to_have_value("google-api", timeout=10000)
+    # --- Test 2: Manually switch to Claude API ---
+    print("Testing manual switch to Claude API...")
+    page.locator("#model-selector").select_option("claude-api")
+    expect(page.locator("#api-key-container")).to_be_hidden()
+    expect(page.locator("#claude-api-key-container")).to_be_visible()
+    print("Manual switch to Claude API verified.")
 
-    # Check that the API key container is now visible
-    expect(page.locator("#api-key-container")).to_be_visible()
-
-    # Check that the final status message is correct
-    expect(page.locator("#result")).to_have_text("Ready to compare using Google Gemini API.")
-    print("Automatic switch and final state verified successfully.")
-
-    # --- Test 2: Test Google Gemini API call with dummy key ---
-    print("Testing Google Gemini API call with a dummy key...")
-    # Enter text and a dummy API key
-    page.locator("#text1").fill("This is a test.")
-    page.locator("#text2").fill("This is another test.")
-    page.locator("#api-key-input").fill("DUMMY_API_KEY")
-
-    # Click compare
+    # --- Test 3: Test Claude API call with dummy key ---
+    print("Testing Claude API call with a dummy key...")
+    page.locator("#text1").fill("This is a test for Claude.")
+    page.locator("#text2").fill("This is another test for Claude.")
+    page.locator("#claude-api-key-input").fill("DUMMY_API_KEY")
     page.get_by_role("button", name="Compare").click()
-
-    # --- Test 3: Check for expected error ---
-    print("Testing for expected API error...")
-    # Wait for the error message from the invalid API key
-    expect(page.locator("#result")).to_contain_text("Google API Error", timeout=30000)
-    print("API error verified successfully.")
+    expect(page.locator("#result")).to_contain_text("Claude API Error", timeout=30000)
+    print("Claude API error verified successfully.")
 
     # Take a screenshot of the final state
     page.screenshot(path="jules-scratch/verification/verification.png")

@@ -14,13 +14,19 @@
             <label for="model-selector">Select AI Model:</label>
             <select id="model-selector">
                 <option value="on-device">On-Device Model (Gemini Nano)</option>
-                <option value="google-api">Google Gemini API (Server-side)</option>
+                <option value="google-api">Google Gemini API</option>
+                <option value="claude-api">Claude API</option>
             </select>
         </div>
 
         <div id="api-key-container" class="hidden">
             <label for="api-key-input">Google Gemini API Key:</label>
             <input type="password" id="api-key-input" placeholder="Enter your API key">
+        </div>
+
+        <div id="claude-api-key-container" class="hidden">
+            <label for="claude-api-key-input">Claude API Key:</label>
+            <input type="password" id="claude-api-key-input" placeholder="Enter your API key">
         </div>
 
         <div class="container">
@@ -39,6 +45,6 @@
             <div id="result"></div>
         </div>
     </main>
-    <script src="script.js"></script>
+    <script src="script.js" type="module"></script>
 </body>
 </html>

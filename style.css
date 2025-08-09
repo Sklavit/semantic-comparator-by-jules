@@ -19,7 +19,7 @@ h1, h2 {
     color: #007bff;
 }
 
-.model-selector-container, #api-key-container {
+.model-selector-container, #api-key-container, #claude-api-key-container {
     margin-bottom: 1.5rem;
     display: flex;
     align-items: center;
